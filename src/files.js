@@ -1,4 +1,4 @@
-const fs = require('fs');                       // 导入文件系统模块
+const fs = require('fs');
 
 // 检查数据库文件是否存在
 function checkDbFiles(id, callback) {
