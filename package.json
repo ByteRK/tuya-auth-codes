@@ -1,0 +1,16 @@
+{
+  "name": "tuya-auth-codes",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "ricken",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.3",
+    "log4js": "^6.9.1",
+    "moment-timezone": "^0.5.45",
+    "sqlite3": "^5.1.7"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}
