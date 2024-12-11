@@ -60,7 +60,7 @@ function searchAuthCode(id, mac, ip, callback) {
 
 // 获取授权码
 function onGet(req, res) {
-    const id = req.query.id;
+    const id = req.query.project;
     const mac = req.query.mac;
     const ip = req.ip;
 
@@ -71,7 +71,51 @@ function onGet(req, res) {
 
     files.checkDbFiles(id, (err, status) => {
         if (status) {
+            const db = new sqlite3.Database(`./db/${ id }.db`);
+            db.get("SELECT uuid, key FROM assignedcodes WHERE mac = ?", [mac], (err, row) => {
+                if (err) {
+                    getAuthLog(ip, id, mac, 3, '用户数据库查询出错');
+                    return res.status(200).json({ code: 404, message: '用户数据库查询出错', data: {} });
+                }
 
+                if (row) {
+                    const { uuid, key } = row;
+                    getAuthLog(ip, id, mac, 1, '已有授权码 uuid:' + uuid + ', key:' + key);
+                    return res.json({ code: 200, message: '已有授权码', data: { mac: mac, uuid: uuid, key: key } });
+                } else {
+                    // 获取一个授权码并从授权码表中删除
+                    db.get("SELECT uuid, key FROM authcodes LIMIT 1", (err, row) => {
+                        if (err) {
+                            getAuthLog(ip, id, mac, 3, '授权码数据库查询出错');
+                            return res.status(200).json({ code: 404, message: '授权码数据库查询出错', data: {} });
+                        }
+                        if (!row) {
+                            getAuthLog(ip, id, mac, 2, '没有可用的授权码');
+                            return res.status(200).json({ code: 201, message: '没有可用的授权码', data: {} });
+                        }
+
+                        const { uuid, key } = row;
+
+                        // 插入分配的授权码到已分配表中
+                        db.run("INSERT INTO assignedcodes (uuid, key, mac) VALUES (?, ?, ?)", [uuid, key, mac], (err) => {
+                            if (err) {
+                                getAuthLog(ip, id, mac, 3, '数据库插入出错');
+                                return res.status(200).json({ code: 300, message: '数据库插入出错', data: {} });
+                            }
+
+                            // 从授权码表中删除已分配的授权码
+                            db.run("DELETE FROM authcodes WHERE uuid = ?", [uuid], (err) => {
+                                if (err) {
+                                    getAuthLog(ip, id, mac, 3, '删除授权码出错 uuid:' + uuid + ', key:' + key);
+                                    return res.status(200).json({ code: 300, message: '删除授权码出错', data: {} });
+                                }
+                                getAuthLog(ip, id, mac, 1, '授权码分配成功 uuid:' + uuid + ', key:' + key);
+                                return res.json({ code: 200, message: '授权码分配成功', data: { mac: mac, uuid: uuid, key: key } });
+                            });
+                        });
+                    });
+                }
+            });
         } else {
             getAuthLog(ip, id, mac, 3, '请求的项目数据库文件不存在');
             return res.status(200).json({ code: 300, message: '请求的项目数据库文件不存在', data: {} });
@@ -81,7 +125,7 @@ function onGet(req, res) {
 
 // 查询授权码
 function onCheck(req, res) {
-    const id = req.query.id;
+    const id = req.query.project;
     const mac = req.query.mac;
     const ip = req.ip;
 
